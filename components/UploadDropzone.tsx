@@ -22,6 +22,12 @@ export function UploadDropzone() {
       return;
     }
 
+    const MAX_SIZE_MB = 10;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setState({ status: "error", message: `File too large — maximum size is ${MAX_SIZE_MB}MB.` });
+      return;
+    }
+
     try {
       setState({ status: "uploading", progress: "Getting upload URL…" });
       const uploadRes = await fetch("/api/upload", {
@@ -107,7 +113,7 @@ export function UploadDropzone() {
           <p className="font-medium text-zinc-300">
             Drop a PDF here, or click to browse
           </p>
-          <p className="text-sm text-zinc-600 mt-1">PDF files only</p>
+          <p className="text-sm text-zinc-600 mt-1">PDF files only · max 10MB</p>
         </>
       )}
 
