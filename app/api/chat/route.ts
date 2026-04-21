@@ -55,5 +55,19 @@ ${context}`;
     messages: await convertToModelMessages(messages),
   });
 
-  return result.toUIMessageStreamResponse();
+  const sources = chunks.map((c, i) => ({
+    index: i + 1,
+    documentId: c.documentId,
+    chunkIndex: c.chunkIndex,
+    content: c.content,
+    similarity: c.similarity,
+  }));
+
+  return result.toUIMessageStreamResponse({
+    messageMetadata: ({ part }) => {
+      if (part.type === "finish") {
+        return { sources };
+      }
+    },
+  });
 }

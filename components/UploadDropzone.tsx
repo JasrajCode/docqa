@@ -87,7 +87,7 @@ export function UploadDropzone() {
       onDrop={onDrop}
       onClick={() => !isLoading && inputRef.current?.click()}
       className={`
-        border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors
+        border-2 border-dashed rounded-xl p-6 sm:p-10 text-center cursor-pointer transition-colors
         ${dragging
           ? "border-zinc-400 bg-zinc-800"
           : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"

@@ -18,10 +18,10 @@ export default async function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-900">
-      <header className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-zinc-100">DocQA</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-zinc-500">{session.user.email}</span>
+      <header className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold text-zinc-100 shrink-0">DocQA</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-sm text-zinc-500 truncate hidden sm:block">{session.user.email}</span>
           <SignOutButton />
         </div>
       </header>

@@ -3,9 +3,19 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatWindowProps {
   documentId: string;
+}
+
+interface Source {
+  index: number;
+  documentId: string;
+  chunkIndex: number;
+  content: string;
+  similarity: number;
 }
 
 export function ChatWindow({ documentId }: ChatWindowProps) {
@@ -39,28 +49,72 @@ export function ChatWindow({ documentId }: ChatWindowProps) {
             Ask a question about this document.
           </p>
         )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
+        {messages.map((msg) => {
+          const text = msg.parts
+            .map((p) => (p.type === "text" ? p.text : ""))
+            .join("");
+          const sources =
+            msg.role === "assistant"
+              ? ((msg.metadata as { sources?: Source[] } | undefined)?.sources ??
+                [])
+              : [];
+
+          return (
             <div
-              className={`
-                max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap
-                ${msg.role === "user"
-                  ? "bg-zinc-100 text-zinc-900 rounded-br-sm"
-                  : "bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-bl-sm"
-                }
-              `}
+              key={msg.id}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              {msg.parts.map((part, i) =>
-                part.type === "text" ? (
-                  <span key={i}>{part.text}</span>
-                ) : null
-              )}
+              <div
+                className={`
+                  max-w-[88%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed
+                  ${msg.role === "user"
+                    ? "bg-zinc-100 text-zinc-900 rounded-br-sm whitespace-pre-wrap"
+                    : "bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-bl-sm"
+                  }
+                `}
+              >
+                {msg.role === "user" ? (
+                  text
+                ) : (
+                  <div className="prose prose-invert prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-pre:bg-zinc-950 prose-code:text-zinc-200 prose-code:before:content-none prose-code:after:content-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {text}
+                    </ReactMarkdown>
+                  </div>
+                )}
+
+                {sources.length > 0 && (
+                  <details className="mt-3 pt-3 border-t border-zinc-700 text-xs">
+                    <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200 select-none">
+                      {sources.length} source{sources.length === 1 ? "" : "s"} used
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {sources.map((s) => (
+                        <div
+                          key={s.index}
+                          className="bg-zinc-900 border border-zinc-700 rounded-lg p-3"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="font-semibold text-zinc-300">
+                              Source {s.index}
+                            </span>
+                            <span className="text-zinc-500 text-[11px]">
+                              {(s.similarity * 100).toFixed(0)}% match · chunk #
+                              {s.chunkIndex}
+                            </span>
+                          </div>
+                          <p className="text-zinc-400 whitespace-pre-wrap leading-relaxed line-clamp-6">
+                            {s.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {status === "streaming" && (
           <div className="flex justify-start">
             <div className="bg-zinc-800 border border-zinc-700 rounded-2xl rounded-bl-sm px-4 py-3">
@@ -76,7 +130,7 @@ export function ChatWindow({ documentId }: ChatWindowProps) {
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="border-t border-zinc-800 bg-zinc-900 px-6 py-4 flex gap-3"
+        className="border-t border-zinc-800 bg-zinc-900 px-4 sm:px-6 py-4 flex gap-2 sm:gap-3"
       >
         <input
           value={input}
