@@ -3,11 +3,16 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 interface ChatWindowProps {
-  documentId: string;
+  documentId?: string;
+  apiPath?: string;
+  demoMode?: boolean;
+  maxQuestions?: number;
+  examplePrompts?: string[];
 }
 
 interface Source {
@@ -18,14 +23,30 @@ interface Source {
   similarity: number;
 }
 
-export function ChatWindow({ documentId }: ChatWindowProps) {
+const DEMO_COUNT_KEY = "docqa.demoQuestionCount";
+
+export function ChatWindow({
+  documentId,
+  apiPath = "/api/chat",
+  demoMode = false,
+  maxQuestions,
+  examplePrompts = [],
+}: ChatWindowProps) {
   const [input, setInput] = useState("");
+  const [questionsAsked, setQuestionsAsked] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted demo question count.
+  useEffect(() => {
+    if (!demoMode) return;
+    const stored = Number(localStorage.getItem(DEMO_COUNT_KEY) ?? "0");
+    if (Number.isFinite(stored)) setQuestionsAsked(stored);
+  }, [demoMode]);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/chat",
-      body: { documentId },
+      api: apiPath,
+      body: documentId ? { documentId } : {},
     }),
   });
 
@@ -33,11 +54,23 @@ export function ChatWindow({ documentId }: ChatWindowProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const limitReached =
+    demoMode && maxQuestions !== undefined && questionsAsked >= maxQuestions;
+
+  function send(text: string) {
+    if (!text.trim() || status !== "ready" || limitReached) return;
+    sendMessage({ text });
+    setInput("");
+    if (demoMode) {
+      const next = questionsAsked + 1;
+      setQuestionsAsked(next);
+      localStorage.setItem(DEMO_COUNT_KEY, String(next));
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || status !== "ready") return;
-    sendMessage({ text: input });
-    setInput("");
+    send(input);
   }
 
   return (
@@ -45,9 +78,26 @@ export function ChatWindow({ documentId }: ChatWindowProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
         {messages.length === 0 && (
-          <p className="text-center text-zinc-600 text-sm mt-16">
-            Ask a question about this document.
-          </p>
+          <div className="mt-12 sm:mt-16 text-center">
+            <p className="text-zinc-600 text-sm mb-6">
+              Ask a question about this document.
+            </p>
+            {examplePrompts.length > 0 && !limitReached && (
+              <div className="flex flex-wrap gap-2 justify-center max-w-xl mx-auto">
+                {examplePrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => send(prompt)}
+                    disabled={status !== "ready"}
+                    className="px-3 py-1.5 text-xs sm:text-sm bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full text-zinc-300 transition-colors disabled:opacity-50"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         {messages.map((msg) => {
           const text = msg.parts
@@ -127,26 +177,50 @@ export function ChatWindow({ documentId }: ChatWindowProps) {
         <div ref={bottomRef} />
       </div>
 
+      {/* Limit-reached banner */}
+      {limitReached && (
+        <div className="border-t border-zinc-800 bg-zinc-900 px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center gap-3 justify-between">
+          <p className="text-sm text-zinc-400 text-center sm:text-left">
+            You&apos;ve used all {maxQuestions} demo questions. Sign in to upload your own documents and keep chatting.
+          </p>
+          <Link
+            href="/login"
+            className="shrink-0 px-4 py-2 bg-zinc-100 text-zinc-900 rounded-xl text-sm font-medium hover:bg-white transition-colors"
+          >
+            Sign in
+          </Link>
+        </div>
+      )}
+
       {/* Input */}
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-zinc-800 bg-zinc-900 px-4 sm:px-6 py-4 flex gap-2 sm:gap-3"
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={status !== "ready"}
-          placeholder="Ask a question about this document…"
-          className="flex-1 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={status !== "ready" || !input.trim()}
-          className="px-4 py-2.5 bg-zinc-100 text-zinc-900 rounded-xl text-sm font-medium hover:bg-white transition-colors disabled:opacity-40"
+      {!limitReached && (
+        <form
+          onSubmit={handleSubmit}
+          className="border-t border-zinc-800 bg-zinc-900 px-4 sm:px-6 py-4 flex flex-col gap-2"
         >
-          Send
-        </button>
-      </form>
+          <div className="flex gap-2 sm:gap-3">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={status !== "ready"}
+              placeholder="Ask a question about this document…"
+              className="flex-1 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={status !== "ready" || !input.trim()}
+              className="px-4 py-2.5 bg-zinc-100 text-zinc-900 rounded-xl text-sm font-medium hover:bg-white transition-colors disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
+          {demoMode && maxQuestions !== undefined && (
+            <p className="text-xs text-zinc-500 text-center">
+              Demo mode · {Math.max(0, maxQuestions - questionsAsked)} of {maxQuestions} questions left
+            </p>
+          )}
+        </form>
+      )}
     </div>
   );
 }

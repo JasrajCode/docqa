@@ -13,6 +13,8 @@ interface DocumentCardProps {
     createdAt: Date;
     _count: { chunks: number };
   };
+  demoMode?: boolean;
+  chatHref?: string;
 }
 
 const STATUS_STYLES: Record<DocumentStatus, string> = {
@@ -27,11 +29,16 @@ const STATUS_LABELS: Record<DocumentStatus, string> = {
   FAILED: "Failed",
 };
 
-export function DocumentCard({ document }: DocumentCardProps) {
+export function DocumentCard({
+  document,
+  demoMode = false,
+  chatHref,
+}: DocumentCardProps) {
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
   async function handleDelete() {
+    if (demoMode) return;
     if (!confirm(`Delete "${document.title}"?`)) return;
     setDeleting(true);
     await fetch("/api/documents", {
@@ -42,12 +49,17 @@ export function DocumentCard({ document }: DocumentCardProps) {
     router.refresh();
   }
 
+  const resolvedChatHref =
+    chatHref ?? `/documents/${document.id}/chat`;
+
   return (
     <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="text-2xl select-none shrink-0">📄</div>
+      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+        <div className="text-2xl select-none shrink-0 leading-none mt-0.5 sm:mt-0">📄</div>
         <div className="min-w-0">
-          <p className="font-medium text-zinc-100 truncate">{document.title}</p>
+          <p className="font-medium text-zinc-100 line-clamp-2 wrap-break-word">
+            {document.title}
+          </p>
           <p className="text-xs text-zinc-500 mt-0.5">
             {document._count.chunks > 0
               ? `${document._count.chunks} chunks`
@@ -66,7 +78,7 @@ export function DocumentCard({ document }: DocumentCardProps) {
         </span>
         {document.status === "READY" && (
           <Link
-            href={`/documents/${document.id}/chat`}
+            href={resolvedChatHref}
             className="px-3 py-1.5 bg-zinc-100 text-zinc-900 text-sm rounded-lg hover:bg-white transition-colors font-medium"
           >
             Chat
@@ -74,11 +86,23 @@ export function DocumentCard({ document }: DocumentCardProps) {
         )}
         <button
           onClick={handleDelete}
-          disabled={deleting}
-          className="text-zinc-600 hover:text-red-400 transition-colors disabled:opacity-50 text-sm ml-auto sm:ml-0"
-          aria-label="Delete document"
+          disabled={deleting || demoMode}
+          title={demoMode ? "Sign in to delete documents" : "Delete document"}
+          className="text-zinc-600 hover:text-red-400 transition-colors disabled:hover:text-zinc-600 disabled:cursor-not-allowed cursor-pointer text-sm ml-auto sm:ml-0"
+          aria-label={demoMode ? "Delete locked - sign in to delete" : "Delete document"}
         >
-          {deleting ? "…" : "✕"}
+          {deleting ? (
+            "…"
+          ) : (
+            <span className="relative inline-flex items-center">
+              <span>✕</span>
+              {demoMode && (
+                <span className="absolute -bottom-1 -right-1 text-[10px] leading-none">
+                  🔒
+                </span>
+              )}
+            </span>
+          )}
         </button>
       </div>
     </div>

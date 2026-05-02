@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import {
   retrieveChunksForUser,
   getDocumentLeadChunks,
@@ -8,16 +6,50 @@ import {
 } from "@/lib/retrieval";
 import { streamText, convertToModelMessages } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
+const DEMO_USER_ID = process.env.DEMO_USER_ID;
+const DEMO_DOCUMENT_ID = process.env.DEMO_DOCUMENT_ID;
+
+// Per-IP server-side limits (defense-in-depth; the client-side counter is UX).
+const HOURLY_MAX = 10;
+const HOURLY_WINDOW_MS = 60 * 60 * 1000;
+const DAILY_MAX = 30;
+const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!DEMO_USER_ID || !DEMO_DOCUMENT_ID) {
+    return NextResponse.json(
+      { error: "Demo mode is not configured." },
+      { status: 503 }
+    );
   }
 
-  const { messages, documentId } = await req.json();
+  const ip = getClientIp(req);
+  const hourly = checkRateLimit(`demo:h:${ip}`, HOURLY_MAX, HOURLY_WINDOW_MS);
+  if (!hourly.ok) {
+    return NextResponse.json(
+      {
+        error:
+          "You've hit the hourly demo limit. Sign in to keep chatting, or come back in an hour.",
+      },
+      { status: 429 }
+    );
+  }
+  const daily = checkRateLimit(`demo:d:${ip}`, DAILY_MAX, DAILY_WINDOW_MS);
+  if (!daily.ok) {
+    return NextResponse.json(
+      {
+        error:
+          "Daily demo limit reached. Sign in to upload your own documents.",
+      },
+      { status: 429 }
+    );
+  }
+
+  const { messages } = await req.json();
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: "messages is required" }, { status: 400 });
   }
@@ -31,22 +63,13 @@ export async function POST(req: NextRequest) {
       : lastUserMessage?.parts?.find((p: { type: string }) => p.type === "text")
           ?.text ?? "";
 
-  // Retrieve relevant chunks
-  const [leadChunks, semanticChunks] = documentId
-    ? await Promise.all([
-        getDocumentLeadChunks(documentId, session.user.id, 3),
-        retrieveChunksForUser(query, session.user.id, {
-          documentId,
-          topK: 8,
-        }),
-      ])
-    : [
-        [],
-        await retrieveChunksForUser(query, session.user.id, {
-          documentId,
-          topK: 10,
-        }),
-      ];
+  const [leadChunks, semanticChunks] = await Promise.all([
+    getDocumentLeadChunks(DEMO_DOCUMENT_ID, DEMO_USER_ID, 3),
+    retrieveChunksForUser(query, DEMO_USER_ID, {
+      documentId: DEMO_DOCUMENT_ID,
+      topK: 8,
+    }),
+  ]);
   const chunks = mergeChunks(leadChunks, semanticChunks);
 
   const context =
@@ -54,9 +77,9 @@ export async function POST(req: NextRequest) {
       ? chunks
           .map((c, i) => `[Source ${i + 1}]\n${c.content}`)
           .join("\n\n---\n\n")
-      : "No relevant content found in your documents.";
+      : "No relevant content found in the demo document.";
 
-  const systemPrompt = `You are a helpful assistant that answers questions based on the user's uploaded documents.
+  const systemPrompt = `You are a helpful assistant that answers questions based on the demo document the user is exploring.
 
 Use the document excerpts below as your primary source. If the excerpts don't directly answer the question, you may make reasonable inferences based on related context - but clearly flag these with phrases like "based on the document's framing, I'd infer…" or "the excerpts don't say directly, but they suggest…". Never invent specific facts, numbers, or quotes that aren't supported.
 

@@ -56,3 +56,45 @@ export async function retrieveChunksForUser(
     LIMIT ${topK}
   `;
 }
+
+/**
+ * Fetches the first N chunks of a document by chunkIndex. Useful for hybrid
+ * retrieval: combining the document's lead context (typically the abstract /
+ * intro) with semantic top-K, so summary-style queries always have the
+ * high-level framing in the prompt regardless of what the embedding matches.
+ */
+export async function getDocumentLeadChunks(
+  documentId: string,
+  userId: string,
+  n: number
+): Promise<RetrievedChunk[]> {
+  return prisma.$queryRaw<RetrievedChunk[]>`
+    SELECT
+      c.id,
+      c."documentId",
+      c.content,
+      c."chunkIndex",
+      1.0 AS similarity
+    FROM "Chunk" c
+    INNER JOIN "Document" d ON d.id = c."documentId"
+    WHERE d."userId" = ${userId}
+      AND c."documentId" = ${documentId}
+    ORDER BY c."chunkIndex" ASC
+    LIMIT ${n}
+  `;
+}
+
+// Merges two chunk lists, deduping by id. First-list entries appear first.
+export function mergeChunks(
+  primary: RetrievedChunk[],
+  secondary: RetrievedChunk[]
+): RetrievedChunk[] {
+  const seen = new Set<string>();
+  const out: RetrievedChunk[] = [];
+  for (const c of [...primary, ...secondary]) {
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push(c);
+  }
+  return out;
+}

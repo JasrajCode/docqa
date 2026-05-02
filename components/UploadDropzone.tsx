@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type UploadState =
   | { status: "idle" }
@@ -10,7 +11,36 @@ type UploadState =
   | { status: "done" }
   | { status: "error"; message: string };
 
-export function UploadDropzone() {
+interface UploadDropzoneProps {
+  disabled?: boolean;
+  disabledMessage?: string;
+  signInHref?: string;
+}
+
+export function UploadDropzone({
+  disabled = false,
+  disabledMessage = "Sign in to upload your own documents.",
+  signInHref = "/login",
+}: UploadDropzoneProps = {}) {
+  if (disabled) {
+    return (
+      <div className="border-2 border-dashed border-zinc-800 rounded-xl p-6 sm:p-10 text-center bg-zinc-900/40 opacity-80">
+        <p className="text-3xl mb-2 select-none">🔒</p>
+        <p className="font-medium text-zinc-400">{disabledMessage}</p>
+        <Link
+          href={signInHref}
+          className="inline-block mt-4 px-4 py-2 bg-zinc-100 text-zinc-900 rounded-lg text-sm font-medium hover:bg-white transition-colors"
+        >
+          Sign in
+        </Link>
+      </div>
+    );
+  }
+
+  return <ActiveUploadDropzone />;
+}
+
+function ActiveUploadDropzone() {
   const [state, setState] = useState<UploadState>({ status: "idle" });
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

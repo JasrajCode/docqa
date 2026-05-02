@@ -6,7 +6,7 @@ export function LoginButton() {
   return (
     <button
       onClick={() => signIn("github", { callbackUrl: "/documents" })}
-      className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-zinc-100 text-zinc-900 rounded-lg font-medium hover:bg-white transition-colors"
+      className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-[#24292f] hover:bg-[#1c2024] text-white rounded-lg font-medium transition-colors border border-zinc-700 cursor-pointer"
     >
       <GitHubIcon />
       Continue with GitHub
