@@ -33,15 +33,13 @@ export function ChatWindow({
   examplePrompts = [],
 }: ChatWindowProps) {
   const [input, setInput] = useState("");
-  const [questionsAsked, setQuestionsAsked] = useState(0);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Load persisted demo question count.
-  useEffect(() => {
-    if (!demoMode) return;
+  // Lazy-initialize from localStorage
+  const [questionsAsked, setQuestionsAsked] = useState<number>(() => {
+    if (typeof window === "undefined" || !demoMode) return 0;
     const stored = Number(localStorage.getItem(DEMO_COUNT_KEY) ?? "0");
-    if (Number.isFinite(stored)) setQuestionsAsked(stored);
-  }, [demoMode]);
+    return Number.isFinite(stored) ? stored : 0;
+  });
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
@@ -215,7 +213,10 @@ export function ChatWindow({
             </button>
           </div>
           {demoMode && maxQuestions !== undefined && (
-            <p className="text-xs text-zinc-500 text-center">
+            <p
+              className="text-xs text-zinc-500 text-center"
+              suppressHydrationWarning
+            >
               Demo mode · {Math.max(0, maxQuestions - questionsAsked)} of {maxQuestions} questions left
             </p>
           )}
