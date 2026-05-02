@@ -3,6 +3,8 @@ import { DocumentCard } from "@/components/DocumentCard";
 import { UploadDropzone } from "@/components/UploadDropzone";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 const DEMO_USER_ID = process.env.DEMO_USER_ID;
 const DEMO_DOCUMENT_ID = process.env.DEMO_DOCUMENT_ID;
 

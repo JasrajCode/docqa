@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { ChatWindow } from "@/components/ChatWindow";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 const DEMO_USER_ID = process.env.DEMO_USER_ID;
 const DEMO_DOCUMENT_ID = process.env.DEMO_DOCUMENT_ID;
 const DEMO_QUESTION_LIMIT = 10;
