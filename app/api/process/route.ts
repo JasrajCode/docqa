@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     // 2. Extract text
     // Lazy-require pdf-parse to prevent its entry file from reading a bundled
     // test PDF at import time, which breaks the build.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParseModule = require("pdf-parse");
     const pdfParse = (pdfParseModule.default ?? pdfParseModule) as (
       buffer: Buffer
