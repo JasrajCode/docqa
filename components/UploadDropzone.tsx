@@ -54,7 +54,8 @@ function ActiveUploadDropzone() {
 
     const MAX_SIZE_MB = 10;
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      setState({ status: "error", message: `File too large — maximum size is ${MAX_SIZE_MB}MB.` });
+      const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+      setState({ status: "error", message: `This PDF is ${sizeMb}MB. The upload limit is ${MAX_SIZE_MB}MB.` });
       return;
     }
 
@@ -82,7 +83,10 @@ function ActiveUploadDropzone() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documentId }),
       });
-      if (!processRes.ok) throw new Error("Processing failed");
+      if (!processRes.ok) {
+        const body = await processRes.json().catch(() => null);
+        throw new Error(body?.error ?? "Processing failed");
+      }
 
       setState({ status: "done" });
       setTimeout(() => {
@@ -153,7 +157,7 @@ function ActiveUploadDropzone() {
 
       {state.status === "processing" && (
         <p className="text-zinc-300 font-medium">
-          Chunking and indexing — this may take a moment…
+          Extracting text and building the search index…
         </p>
       )}
 

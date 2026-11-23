@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
       await s3Response.Body!.transformToByteArray()
     );
 
-    // 2. Extract text — lazy require keeps pdf-parse out of the build-time bundle
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // 2. Extract text
+    // Lazy-require pdf-parse to prevent its entry file from reading a bundled
+    // test PDF at import time, which breaks the build.
     const pdfParseModule = require("pdf-parse");
     const pdfParse = (pdfParseModule.default ?? pdfParseModule) as (
       buffer: Buffer
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Could not extract text from PDF. The file may be a scanned image — only PDFs with selectable text are supported.",
+            "Could not extract text from PDF. Only files with selectable text are supported, not scanned images.",
         },
         { status: 422 }
       );

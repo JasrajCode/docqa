@@ -59,7 +59,8 @@ Same demo on a phone. Everything reflows cleanly, including the sources panel.
 - **Markdown rendering:** react-markdown + remark-gfm
 - **Styling:** Tailwind CSS 4 with `@tailwindcss/typography`
 - **Deployment:** Docker (multi-stage build), Render
-- **CI/CD:** GitHub Actions (lint + typecheck on PRs, auto-deploy via webhook on merge)
+- **Testing:** Vitest unit tests (chunking, rate limiting, hybrid retrieval merge)
+- **CI/CD:** GitHub Actions (lint, type check and tests on every PR and push; deploys to Render only after all checks pass on `main`)
 
 ---
 
@@ -127,6 +128,7 @@ lib/
 ├── chunker.ts           — recursive text splitter
 ├── embeddings.ts        — OpenAI client wrappers
 ├── retrieval.ts         — hybrid retrieval (lead + semantic)
+├── merge-chunks.ts      — pure merge/dedupe of lead + semantic results
 ├── rate-limit.ts        — in-memory IP rate limiter
 ├── prisma.ts            — Prisma singleton
 └── s3.ts                — AWS S3 client
@@ -136,7 +138,7 @@ lib/
 
 ## Running locally
 
-**Prerequisites:** Node.js 20+, Docker
+**Prerequisites:** Node.js 22+, Docker
 
 1. Clone the repo
    ```bash
@@ -176,10 +178,12 @@ lib/
 
 Visit `http://localhost:3000`.
 
+Run the unit tests with `npm test` (or `npm run test:watch` while developing). Test files sit next to the code they cover, e.g. `lib/chunker.test.ts`.
+
 ---
 
 ## Deployment
 
 The app is containerized with a multi-stage Docker build (non-root production runner, Next.js standalone output) and deployed to Render. The database is hosted on Neon (free serverless Postgres with pgvector).
 
-GitHub Actions runs ESLint and TypeScript checks on every pull request. On merge to `main`, the workflow triggers a Render deploy hook that pulls the latest code, rebuilds the image, and rolls out the new version.
+GitHub Actions runs ESLint, the TypeScript compiler and the Vitest suite on every pull request and push. On `main`, a deploy job that depends on those checks triggers a Render deploy hook, which pulls the latest code, rebuilds the image and rolls out the new version. If any check fails, nothing is deployed.

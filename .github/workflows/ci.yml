@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  lint-typecheck:
-    name: Lint & Type Check
+  checks:
+    name: Lint, Type Check & Test
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -30,3 +30,17 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+  deploy:
+    name: Deploy to Render
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render deploy hook
+        # -f makes curl exit non-zero on an HTTP error, so a broken hook fails the job
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

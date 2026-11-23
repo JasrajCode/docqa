@@ -12,12 +12,15 @@ let cleanupStarted = false;
 function startCleanup() {
   if (cleanupStarted) return;
   cleanupStarted = true;
-  setInterval(() => {
+  const timer = setInterval(() => {
     const now = Date.now();
     for (const [key, bucket] of buckets) {
       if (bucket.resetAt < now) buckets.delete(key);
     }
   }, 10 * 60 * 1000);
+  // Avoids a type collision between DOM (`number`) and @types/node (`NodeJS.Timeout`)
+  // return types for setInterval.
+  if (typeof timer === "object") timer.unref();
 }
 
 export interface RateLimitResult {
