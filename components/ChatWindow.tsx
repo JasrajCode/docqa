@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -25,6 +25,29 @@ interface Source {
 
 const DEMO_COUNT_KEY = "docqa.demoQuestionCount";
 
+// Demo question count is persisted in localStorage. useSyncExternalStore renders
+// the server snapshot (0) during hydration to avoid a markup mismatch.
+const countListeners = new Set<() => void>();
+
+function subscribeToCount(onChange: () => void) {
+  countListeners.add(onChange);
+  window.addEventListener("storage", onChange); // cross-tab sync
+  return () => {
+    countListeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function readCount(): number {
+  const stored = Number(localStorage.getItem(DEMO_COUNT_KEY) ?? "0");
+  return Number.isFinite(stored) ? stored : 0;
+}
+
+function writeCount(count: number) {
+  localStorage.setItem(DEMO_COUNT_KEY, String(count));
+  countListeners.forEach((notify) => notify());
+}
+
 export function ChatWindow({
   documentId,
   apiPath = "/api/chat",
@@ -33,12 +56,8 @@ export function ChatWindow({
   examplePrompts = [],
 }: ChatWindowProps) {
   const [input, setInput] = useState("");
-  // Lazy-initialize from localStorage
-  const [questionsAsked, setQuestionsAsked] = useState<number>(() => {
-    if (typeof window === "undefined" || !demoMode) return 0;
-    const stored = Number(localStorage.getItem(DEMO_COUNT_KEY) ?? "0");
-    return Number.isFinite(stored) ? stored : 0;
-  });
+  const storedCount = useSyncExternalStore(subscribeToCount, readCount, () => 0);
+  const questionsAsked = demoMode ? storedCount : 0;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { messages, sendMessage, status } = useChat({
@@ -59,11 +78,7 @@ export function ChatWindow({
     if (!text.trim() || status !== "ready" || limitReached) return;
     sendMessage({ text });
     setInput("");
-    if (demoMode) {
-      const next = questionsAsked + 1;
-      setQuestionsAsked(next);
-      localStorage.setItem(DEMO_COUNT_KEY, String(next));
-    }
+    if (demoMode) writeCount(questionsAsked + 1);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -213,10 +228,7 @@ export function ChatWindow({
             </button>
           </div>
           {demoMode && maxQuestions !== undefined && (
-            <p
-              className="text-xs text-zinc-500 text-center"
-              suppressHydrationWarning
-            >
+            <p className="text-xs text-zinc-500 text-center">
               Demo mode · {Math.max(0, maxQuestions - questionsAsked)} of {maxQuestions} questions left
             </p>
           )}

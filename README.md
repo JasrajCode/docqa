@@ -59,7 +59,7 @@ Same demo on a phone. Everything reflows cleanly, including the sources panel.
 - **Markdown rendering:** react-markdown + remark-gfm
 - **Styling:** Tailwind CSS 4 with `@tailwindcss/typography`
 - **Deployment:** Docker (multi-stage build), Render
-- **Testing:** Vitest unit tests (chunking, rate limiting, hybrid retrieval merge)
+- **Testing:** Vitest unit tests (chunking, rate limiting, hybrid retrieval merge) and Playwright end-to-end tests of the demo flow against a local mock of the OpenAI and Anthropic APIs
 - **CI/CD:** GitHub Actions (lint, type check and tests on every PR and push; deploys to Render only after all checks pass on `main`)
 
 ---
@@ -180,10 +180,18 @@ Visit `http://localhost:3000`.
 
 Run the unit tests with `npm test` (or `npm run test:watch` while developing). Test files sit next to the code they cover, e.g. `lib/chunker.test.ts`.
 
+The end-to-end tests in `e2e/` drive the production build in a real browser. They use a throwaway database and a small local server that stands in for the OpenAI and Anthropic APIs, so they cost nothing and give the same result every run. The app reaches the stand-in through `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL`, so no test-only code ships in the app.
+
+```bash
+npx playwright install chromium   # first time only
+docker compose up -d db
+npm run test:e2e
+```
+
 ---
 
 ## Deployment
 
 The app is containerized with a multi-stage Docker build (non-root production runner, Next.js standalone output) and deployed to Render. The database is hosted on Neon (free serverless Postgres with pgvector).
 
-GitHub Actions runs ESLint, the TypeScript compiler and the Vitest suite on every pull request and push. On `main`, a deploy job that depends on those checks triggers a Render deploy hook, which pulls the latest code, rebuilds the image and rolls out the new version. If any check fails, nothing is deployed.
+GitHub Actions runs ESLint, the TypeScript compiler and the Vitest suite on every pull request and push. A second job builds the app and runs the Playwright tests against a Postgres service container. On `main`, a deploy job waits for both, then triggers a Render deploy hook, which pulls the latest code, rebuilds the image and rolls out the new version. If any check fails, nothing is deployed.

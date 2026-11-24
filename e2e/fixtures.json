@@ -1,0 +1,15 @@
+{
+  "document": {
+    "title": "Retrieval-Augmented Generation (test fixture)"
+  },
+  "queryVectorIndex": 4,
+  "chunks": [
+    "Retrieval-augmented generation pairs a pretrained language model with a retriever that looks up passages from an external index.",
+    "The retriever encodes the question and each passage as vectors and picks the passages whose vectors are closest.",
+    "Grounding answers in retrieved text makes them easier to verify and cuts down on made-up facts.",
+    "The model can be updated by swapping its index, without retraining any weights.",
+    "The approach was evaluated on open-domain question answering, question generation and fact verification.",
+    "Results improved over models that rely only on knowledge stored in their parameters."
+  ],
+  "answer": "**Retrieval-augmented generation** answers a question by first looking up relevant passages, then writing a response grounded in them.\n\n- It retrieves passages from an external index\n- It can point to where each claim came from\n\nBased on Source 1 and Source 5."
+}
